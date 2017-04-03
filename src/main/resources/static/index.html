@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <title>Visualization of Toronto CT data</title>
+    <style>
+        /* Always set the map height explicitly to define the size of the div
+            * element that contains the map. */
+        
+        #map {
+            height: 100%;
+        }
+        /* Optional: Makes the sample page fill the window. */
+        
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+    <script type="text/javascript" src="scripts/stats.js">
+    </script>
+    <script type="text/javascript" src="scripts/constants.js">
+    </script>
+    <script type="text/javascript" src="scripts/geoxml3.js">
+    </script>
+</head>
+
+<body>
+    <div id="map"></div>
+    <script>
+        var map;
+        var testVars = [];
+
+        function generatePoint(polygon) {
+            var sw = polygon.bounds.getSouthWest();
+            var ne = polygon.bounds.getNorthEast();
+            for (var i = 0; i < 100; i++) { // try a hundred times. hopefully the average # of tries is way lower
+                var ptLat = Math.random() * (ne.lat() - sw.lat()) + sw.lat();
+                var ptLng = Math.random() * (ne.lng() - sw.lng()) + sw.lng();
+                var point = new google.maps.LatLng(ptLat, ptLng);
+                if (google.maps.geometry.poly.containsLocation(point, polygon)) {
+                    return point;
+                }
+            }
+        }
+
+        function initMap() {
+            var styles = MAP_STYLE;
+            var markerLocations = [];
+
+            map = new google.maps.Map(document.getElementById('map'), {
+                maxZoom: 15,
+                center: { lat: 43.6581773, lng: -79.382398 },
+                styles: styles,
+                minZoom: 11
+            });
+
+            var whiteImage = {
+                url: 'images/white.png',
+                size: new google.maps.Size(4, 4),
+                origin: new google.maps.Point(2, 2),
+                anchor: new google.maps.Point(2, 2)
+            };
+
+            var greenImage = {
+                url: 'images/green.png',
+                size: new google.maps.Size(4, 4),
+                origin: new google.maps.Point(2, 2),
+                anchor: new google.maps.Point(2, 2)
+            };
+
+            var blueImage = {
+                url: 'images/blue.png',
+                size: new google.maps.Size(4, 4),
+                origin: new google.maps.Point(2, 2),
+                anchor: new google.maps.Point(2, 2)
+            };
+
+            var yellowImage = {
+                url: 'images/yellow.png',
+                size: new google.maps.Size(4, 4),
+                origin: new google.maps.Point(2, 2),
+                anchor: new google.maps.Point(2, 2)
+            };
+
+            var redImage = {
+                url: 'images/red.png',
+                size: new google.maps.Size(4, 4),
+                origin: new google.maps.Point(2, 2),
+                anchor: new google.maps.Point(2, 2)
+            };
+
+            var COLORS = { 'East Asian': whiteImage, 'African': greenImage, 'Carribean': redImage, 'South Asian': yellowImage, 'European': blueImage };
+
+            var geoxml = new geoXML3.parser({
+                map: map,
+                singleInfoWindow: true,
+                afterParse: function (doc) {
+                    for (var i = 0; i < doc[0].placemarks.length; i++) {
+                        var placemark = doc[0].placemarks[i];
+                        placemark.style.balloon.text = "<h3>$[CTNAME]</h3>";
+                        addListeners(placemark);
+                    }
+                },
+                createPolygon: function (placemark, doc) {
+                    //get the marker from the built-in createMarker-function
+                    var polygon = geoXML3.instances[0].createPolygon(placemark, doc);
+                    
+                    polygon.setOptions({ strokeColor: "white", strokeWidth: 1, strokeOpacity: 0 })
+                    
+                    // get the CT in question
+                    var ct = placemark.vars.val['CTNAME']
+                    
+                    if (ct in STATS) {
+                        var stats = STATS[ct]['ethnicityStats'];
+                        
+                        var divText = '';
+                        var alength = ETHNICITIES.length;
+                        for (var i = 0; i < alength; i++) {
+                            var ethnicity = ETHNICITIES[i];
+                            for (var j = 0; j < stats[ethnicity]['points']; j++) {
+                                var point = generatePoint(polygon);
+                                markerLocations.push(point);
+                                var marker = new google.maps.Marker({position: point, map: map, icon: COLORS[ethnicity], clickable: false, flat: true});
+                            }
+
+                            divText += '<div style="font-size: 10px">' + ethnicity + ': ' + stats[ethnicity]['percent'] + '%</div>';
+                        }
+                    } else {
+                        testVars.push(ct)
+                    }
+
+                    //modify the content
+                    polygon.infoWindowOptions.content = '<div class="geoxml3_infowindow geoxml3_style_">' +
+                        '<h3></h3>' +
+                        '<div><b>CT: ' + ct + '</b></div>' +
+                        divText +                       
+                        '</div>';
+
+                    return polygon;
+                }
+            });
+
+            geoxml.parse('data/toronto-ct.kml');
+        }
+
+        function addListeners(placemark) {
+            google.maps.event.addListener(placemark.polygon, "mouseover", function () { mouseOverEvent(placemark) });
+            google.maps.event.addListener(placemark.polygon, "mouseout", function () { mouseOutEvent(placemark) });
+        }
+
+        function mouseOverEvent(placemark) {
+            placemark.polygon.setOptions({ strokeColor: "white", strokeWidth: 10, strokeOpacity: 1 })
+        }
+
+        function mouseOutEvent(placemark) {
+            placemark.polygon.setOptions({ strokeColor: "white", strokeWidth: 1, strokeOpacity: 0 })
+        }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBDMS5IRfklCZDSnPcco7kGRgFZXuZr6_Y&callback=initMap&libraries=geometry">
+    </script>
+</body>
+
+</html>

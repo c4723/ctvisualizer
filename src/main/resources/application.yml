@@ -1,0 +1,6 @@
+---
+server:
+  port:  8080
+
+info:
+  description: Visualize census data
